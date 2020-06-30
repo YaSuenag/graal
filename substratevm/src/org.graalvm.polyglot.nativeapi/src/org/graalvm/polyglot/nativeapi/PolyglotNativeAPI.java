@@ -90,6 +90,7 @@ import org.graalvm.polyglot.nativeapi.types.PolyglotNativeAPITypes.PolyglotLangu
 import org.graalvm.polyglot.nativeapi.types.PolyglotNativeAPITypes.PolyglotStatus;
 import org.graalvm.polyglot.nativeapi.types.PolyglotNativeAPITypes.PolyglotValue;
 import org.graalvm.polyglot.nativeapi.types.PolyglotNativeAPITypes.PolyglotValuePointer;
+import org.graalvm.polyglot.nativeapi.types.PolyglotNativeAPITypes.PolyglotValuePointerPointer;
 import org.graalvm.polyglot.nativeapi.types.PolyglotNativeAPITypes.SizeTPointer;
 import org.graalvm.polyglot.proxy.ProxyArray;
 import org.graalvm.polyglot.proxy.ProxyExecutable;
@@ -1484,20 +1485,22 @@ public final class PolyglotNativeAPI {
                     " @param argc number of arguments to the callback.",
                     " @param argv poly_value array of arguments for the callback.",
                     " @param the data pointer for the callback.",
-                    " @since 19.0",
+                    " @since 20.2",
     })
-    public static PolyglotStatus poly_get_callback_info(PolyglotIsolateThread thread, PolyglotCallbackInfo callback_info, SizeTPointer argc, PolyglotValuePointer argv, WordPointer data) {
+    public static PolyglotStatus poly_get_callback_info(PolyglotIsolateThread thread, PolyglotCallbackInfo callback_info, SizeTPointer argc, PolyglotValuePointerPointer argv, WordPointer data) {
         return withHandledErrors(() -> {
             PolyglotCallbackInfoInternal callbackInfo = fetchHandle(callback_info);
             UnsignedWord numberOfArguments = WordFactory.unsigned(callbackInfo.arguments.length);
             UnsignedWord bufferSize = argc.read();
             UnsignedWord size = bufferSize.belowThan(numberOfArguments) ? bufferSize : numberOfArguments;
             argc.write(size);
+            PolyglotValuePointer arglist = UnmanagedMemory.malloc(size.multiply(SizeOf.unsigned(PolyglotValue.class)));
             for (UnsignedWord i = WordFactory.zero(); i.belowThan(size); i = i.add(1)) {
                 int index = (int) i.rawValue();
                 ObjectHandle argument = callbackInfo.arguments[index];
-                argv.write(index, argument);
+                arglist.write(index, argument);
             }
+            argv.write(arglist);
             data.write(callbackInfo.data);
         });
     }
